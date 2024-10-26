@@ -28,7 +28,8 @@ async fn main() {
                     id:1,
                 }.encode();
                 println!("{:?}", subscription_packet);
-
+                
+                // One thing to note is that SUBACK packets could be checked here before entering the main loop
                 if let Err(e) = stream.write_all(&subscription_packet).await{
                     eprintln!("Failed to subscribe: {}", e);
                 } else{
