@@ -1,7 +1,5 @@
 use tokio::net::TcpStream;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
-
-use crate::packet::PacketType;
 use crate::packet::MqttConnect;
 
 // Connect to the MQTT Broker via TCP/IP
@@ -32,8 +30,6 @@ pub async fn read_connack(stream: &mut TcpStream) -> Result<bool, Box<dyn std::e
 }
 
 pub async fn read_pingresp(stream: &mut TcpStream) -> Result<bool, Box<dyn std::error::Error>> {
-    println!("Reading PINGRESP");
-    
     let mut buffer = [0u8; 2];
     stream.read_exact(&mut buffer).await?; 
     println!("{:?}", buffer);
