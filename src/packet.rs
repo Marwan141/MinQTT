@@ -31,17 +31,32 @@ impl MqttConnect {
         let mut packet = Vec::new();
         packet.push((PacketType::Connect as u8) << 4);
         
-        // Variable header and payload encoding (simplified)
-        packet.extend_from_slice(&[0x00, 0x04]); // Length of "MQTT"
-        packet.extend_from_slice(self.protocol_name.as_bytes());
-        packet.push(self.protocol_level);
-        packet.push(0); // No clean-sessions yet.
-
-        // Client ID
-        packet.push(0);
-        packet.push(self.client_id.len() as u8);
-        packet.extend_from_slice(self.client_id.as_bytes());
+        let mut variable_header_and_payload = Vec::new();
         
+        // Protocol Name
+        variable_header_and_payload.extend_from_slice(&[0x00, 0x04]); // Length of "MQTT"
+        variable_header_and_payload.extend_from_slice(self.protocol_name.as_bytes());
+        
+        // Protocol Level
+        variable_header_and_payload.push(self.protocol_level);
+        
+        // Connect Flags
+        let connect_flags = if self.clean_session { 0x02 } else { 0x00 };
+        variable_header_and_payload.push(connect_flags);
+        
+        // Keep Alive
+        variable_header_and_payload.extend_from_slice(&[0x00, 0x3C]); 
+        
+        // Client ID
+        variable_header_and_payload.push(0x00);
+        variable_header_and_payload.push(self.client_id.len() as u8);
+        variable_header_and_payload.extend_from_slice(self.client_id.as_bytes());
+        
+
+        let remaining_length = variable_header_and_payload.len() as u8;
+
+        packet.push(remaining_length);
+        packet.extend_from_slice(&variable_header_and_payload);
         packet
     }
 }
@@ -56,7 +71,7 @@ impl MqttPublish {
         let mut packet = Vec::new();
         packet.push((PacketType::Connect as u8) << 4); // PUBLISH packet type
 
-        // Add remaining length (simplified, assumes small packets)
+        // We need to add remaining length (simplified, assumes small packets)
         packet.push((self.topic.len() + self.payload.len() + 2) as u8);
 
         // Topic

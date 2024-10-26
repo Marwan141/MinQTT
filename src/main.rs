@@ -1,7 +1,6 @@
 mod packet;
 mod client;
-use packet::MqttPublish;
-use packet::PacketType;
+use packet::{MqttConnect, MqttPublish};
 use client::connect_to_broker;
 use client::read_connack;
 use tokio::io::AsyncWriteExt;
@@ -27,7 +26,6 @@ async fn main() {
                 stream.write_all(&publish_packet).await.unwrap();
                 println!("Published message!");
             }
-            println!("Got here!")
 
         }
         Err(e) => {

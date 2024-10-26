@@ -24,7 +24,7 @@ pub async fn read_connack(stream: &mut TcpStream) -> Result<bool, Box<dyn std::e
     let mut buffer = [0u8; 4];
     stream.read_exact(&mut buffer).await?;
     // Check if the buffer contains the expected CONNACK packet
-    if buffer[0] == 0x20 && buffer[1] == 0x02 && buffer[3] == 0x00 {
+    if buffer[0] == 0x20 && buffer[1] == 0x02 && buffer[3] == 0x00 { //first byte is 0x20 (Connack), second byte is remaining length and third is success.
         Ok(true)
     } else {
         Ok(false)
