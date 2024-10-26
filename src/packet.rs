@@ -2,6 +2,7 @@ pub enum PacketType {
     Connect = 1,
     ConnAck = 2,
     Publish = 3,
+    PingReq = 12,
 }
 pub struct MqttConnect {
     protocol_name: String,
@@ -10,18 +11,11 @@ pub struct MqttConnect {
     client_id: String,
 }
 
-pub struct ConnectPacket {
-    protocol_name: String,
-    protocol_level: u8,
-    client_id: String,
-    keep_alive: u16,
-}
-
 impl MqttConnect {
     pub fn new(client_id: &str) -> Self {
         Self {
             protocol_name: "MQTT".to_string(),
-            protocol_level: 4,
+            protocol_level: 4, // 4 is MQTT 3.1.1
             clean_session: true,
             client_id: client_id.to_string(),
         }
@@ -61,6 +55,20 @@ impl MqttConnect {
     }
 }
 
+
+
+pub struct MqttPingReq{
+
+}
+
+impl MqttPingReq{
+    pub fn encode(&self) -> Vec<u8> {
+        let mut packet = Vec::new();
+        packet.push((PacketType::PingReq as u8) << 4);
+        packet.push(0x00); // Remaining length is 0 for PINGREQ
+        packet
+    }
+}
 pub struct MqttPublish {
     pub topic: String,
     pub payload: Vec<u8>,
@@ -69,7 +77,7 @@ pub struct MqttPublish {
 impl MqttPublish {
     pub fn encode(&self) -> Vec<u8> {
         let mut packet = Vec::new();
-        packet.push((PacketType::Connect as u8) << 4); // PUBLISH packet type
+        packet.push((PacketType::Publish as u8) << 4); // PUBLISH packet type
 
         // We need to add remaining length (simplified, assumes small packets)
         packet.push((self.topic.len() + self.payload.len() + 2) as u8);
@@ -81,7 +89,6 @@ impl MqttPublish {
 
         // Payload
         packet.extend_from_slice(&self.payload);
-        
         packet
     }
 }
