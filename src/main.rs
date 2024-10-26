@@ -1,7 +1,7 @@
 mod packet;
 mod client;
 use client::read_pingresp;
-use packet::{MqttConnect, MqttPublish, MqttPingReq};
+use packet::{MqttConnect, MqttPublish, MqttPingReq, MqttSubscribe};
 
 use tokio::time::timeout;
 
@@ -13,16 +13,27 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[tokio::main]
 
 async fn main() {
-    let broker = "test.mosquitto.org";
+    let broker = "broker.hivemq.com";
     let port = 1883;
-    let client_id = "rust_mqtt_client";
+    let client_id = "minqtt_client";
 
     match connect_to_broker(broker, port, client_id).await {
         Ok(mut stream) => {
             if let Ok(true) = read_connack(&mut stream).await {
                 println!("Connected to the broker!");
+                
+                let subscription_packet = MqttSubscribe 
+                {
+                    topic: "test".to_string(),
+                    id:1,
+                }.encode();
+                println!("{:?}", subscription_packet);
 
-                // SUBSCRIPTION PACKETS TO BE SENT AT THE BEGINNING
+                if let Err(e) = stream.write_all(&subscription_packet).await{
+                    eprintln!("Failed to subscribe: {}", e);
+                } else{
+                    println!("Success subscribing!")
+                }
 
                 let keep_alive_int = Duration::from_secs(5);
                 let mut last_ping = tokio::time::Instant::now();
@@ -43,10 +54,17 @@ async fn main() {
                     match timeout(Duration::from_secs(1), stream.read_exact(&mut buffer)).await {
                         Ok(Ok(_)) => match buffer[0] >> 4 {
                             13 => {
-                                println!("Received PINGRESP");
+                                println!("Received PINGRESP packet.");
+                            }
+                            9 => {
+                                println!("Received SUBACK packet.")
+                            }
+                            3 => {
+                                println!("Received PUBLISH packet.")
+                                // Decoding
                             }
                             _ => {
-                                println!("Received unknown packet type {:?}", buffer);
+                                println!("Received unknown packet type {:?}", buffer[0] >> 4);
                             }
                         },
                         Ok(Err(e)) => {
