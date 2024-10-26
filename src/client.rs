@@ -30,3 +30,18 @@ pub async fn read_connack(stream: &mut TcpStream) -> Result<bool, Box<dyn std::e
         Ok(false)
     }
 }
+
+pub async fn read_pingresp(stream: &mut TcpStream) -> Result<bool, Box<dyn std::error::Error>> {
+    println!("Reading PINGRESP");
+    
+    let mut buffer = [0u8; 2];
+    stream.read_exact(&mut buffer).await?; 
+    println!("{:?}", buffer);
+    if buffer[0] == 0xD0 && buffer[1] == 0x00 {
+        Ok(true)
+    } else {
+        Ok(false)
+
+    }
+
+}
