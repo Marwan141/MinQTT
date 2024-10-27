@@ -65,7 +65,7 @@ pub struct MqttPingReq{
 impl MqttPingReq{
     pub fn encode(&self) -> Vec<u8> {
         let mut packet = Vec::new();
-        packet.push(((PacketType::PingReq as u8) << 4));
+        packet.push((PacketType::PingReq as u8) << 4);
         packet.push(0x00); // Remaining length is 0 for PINGREQ
         packet
     }
