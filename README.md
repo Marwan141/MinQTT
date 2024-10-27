@@ -13,9 +13,12 @@ A light open-source Rust-based MQTT client library implemented utilizing Tokio.
 - Successfully implemented CONNECT and CONNACK packets.
 - PUBLISH packets are now functional.
 - PINGREQ and PINGRESP packets are now implemented.
+- Implemented SUBSCRIBE packets.
+- Decoding PUBLISH packets.
   
 ### TODO
-- Implement SUBSCRIBE packets.
+- Simplify API.
+- Clean up debugging outputs.
 - Add support for different QoS levels.
 - Integrate encryption into packets.
 
