@@ -1,3 +1,7 @@
+
+use tokio::net::{TcpSocket, TcpStream};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
 pub enum PacketType {
     Connect = 1,
     ConnAck = 2,
@@ -99,12 +103,22 @@ impl MqttSubscribe{
 }
 pub struct MqttPublish {
     pub topic: String,
-    pub payload: Vec<u8>,
+    pub payload: String,
     pub dup: bool,
+    pub qos: u8,
     pub retain: bool
 }
 
 impl MqttPublish {
+    pub fn new(topic: String, payload: String, dup: bool, qos: u8, retain: bool) -> Self {
+        MqttPublish {
+            topic,
+            payload,
+            dup,
+            qos,
+            retain,
+        }
+    }
     pub fn encode(&self) -> Vec<u8> {
         let mut packet = Vec::new();
         let mut fixed_header = 0;
@@ -120,6 +134,7 @@ impl MqttPublish {
         if self.retain {
             fixed_header |= 0x01;
         }
+
         packet.push(fixed_header);
         packet.push((self.topic.len() + self.payload.len() + 2) as u8);
 
@@ -130,7 +145,7 @@ impl MqttPublish {
         packet.extend_from_slice(self.topic.as_bytes());
 
         // Payload
-        packet.extend_from_slice(&self.payload);
+        packet.extend_from_slice(self.payload.as_bytes());
 
         let remaining_length = packet.len() - 1; // Exclude the fixed header byte
         let mut remaining_length_bytes = Vec::new();
@@ -147,8 +162,63 @@ impl MqttPublish {
             }
         }
 
-        
         packet.splice(1..1, remaining_length_bytes.iter().cloned());
         packet
+    }
+    pub async fn decode(header:Vec<u8>, stream:&mut TcpStream) -> MqttPublish {
+        let fixed_header = header[0];
+        let qos = (fixed_header >> 1) & 0x03;
+        let dup = (fixed_header & 0x08) != 0;
+        let retain = (fixed_header & 0x01) != 0;
+
+        let mut index = 1;
+        let mut remaining_length = 0;
+        let mut multiplier = 1;
+
+        // Decode remaining length
+        loop {
+            let mut encoded_byte = [0u8; 1];
+            match stream.read_exact(&mut encoded_byte).await {
+                Ok(_) => {
+                    let byte = encoded_byte[0];
+                    remaining_length += (byte & 127) as usize * multiplier;
+                    multiplier *= 128;
+                    if byte & 128 == 0 {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read remaining length: {:?}", e);
+                    return MqttPublish {
+                        topic: String::new(),
+                        payload: String::new(),
+                        dup,
+                        qos,
+                        retain,
+                    };
+                }
+            }
+        }
+
+        let mut packet = vec![0u8; remaining_length];
+        if let Err(e) = stream.read_exact(&mut packet).await { // Read the remaining length
+            eprintln!("Failed to read packet: {:?}", e);
+            return MqttPublish {
+                topic: String::new(),
+                payload: String::new(),
+                dup,
+                qos,
+                retain,
+            };
+        }
+
+       // Decode topic
+       let topic_len = u16::from_be_bytes([packet[0], packet[1]]) as usize;
+       let topic = String::from_utf8(packet[2..(2 + topic_len)].to_vec()).unwrap();
+
+       // Decode payload
+       let payload = String::from_utf8(packet[2 + topic_len..].to_vec()).unwrap();
+
+       MqttPublish::new(topic, payload, dup, qos, retain)
     }
 } 

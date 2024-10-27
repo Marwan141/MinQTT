@@ -84,15 +84,22 @@ async fn main() {
                         last_ping = tokio::time::Instant::now();
                     }
                     
-                    let mut buffer = [0u8; 2];
+                    let mut buffer = [0u8; 1];
                     match timeout(Duration::from_secs(1), stream.read_exact(&mut buffer)).await {
                         Ok(Ok(_)) => match buffer[0] >> 4 {
                             13 => {
                                 println!("Received PINGRESP packet.");
                             }
                             3 => {
-                                println!("Received PUBLISH packet.")
-                                // Decoding of publish packet
+                                
+                                let received_publish = MqttPublish::decode(buffer.to_vec(), &mut stream);
+                                let pub_struct = received_publish.await;
+                                println!("Received PUBLISH packet.");
+                                println!("-------------------------------");
+                                println!("Topic: {}", pub_struct.topic);
+                                println!("Payload: {}", pub_struct.payload);
+                                println!("-------------------------------");
+
                             }
                             _ => {
                                 println!("Received unknown packet type {:?}", buffer[0] >> 4);
@@ -106,9 +113,7 @@ async fn main() {
                             // Timeout expired
                             println!("Nothing is in the stream.");
                         }
-                    }
-                    
-                    
+                    }    
                     sleep(Duration::from_millis(100)).await;
                 }
          
