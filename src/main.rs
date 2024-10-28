@@ -23,7 +23,7 @@ async fn main() {
         Ok(mut stream) => {
             if let Ok(true) = read_connack(&mut stream).await {
                 println!("Connected to the broker!");
-                let mut counter = 0;
+                let mut counter = 1;
                 for sub in subscriptions{
                     subscribe_to_topic(&mut stream, sub, counter).await;
                     counter += 1;
