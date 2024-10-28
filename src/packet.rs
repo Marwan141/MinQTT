@@ -1,6 +1,6 @@
 
-use tokio::net::{TcpSocket, TcpStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpStream};
+use tokio::io::{AsyncReadExt};
 
 pub enum PacketType {
     Connect = 1,
@@ -78,9 +78,15 @@ impl MqttPingReq{
 
 pub struct MqttSubscribe{
     pub topic: String,
-    pub id: u16,
+    pub id: u16, // To be fixed later - ID is used to identify packets whilst being in acknowledgement process (Some kind of DHCP but for IDs?)
 }
 impl MqttSubscribe{
+    pub fn new(topic:String, id:u16) -> Self{
+        MqttSubscribe{
+            topic,
+            id
+        }
+    }
     pub fn encode(&self) -> Vec<u8> {
         let mut packet = Vec::new();
         packet.push(((PacketType::Subscribe as u8) << 4) + 2);
@@ -171,7 +177,6 @@ impl MqttPublish {
         let dup = (fixed_header & 0x08) != 0;
         let retain = (fixed_header & 0x01) != 0;
 
-        let mut index = 1;
         let mut remaining_length = 0;
         let mut multiplier = 1;
 

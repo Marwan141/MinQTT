@@ -5,7 +5,7 @@ use packet::{MqttConnect, MqttPublish, MqttPingReq, MqttSubscribe};
 use tokio::time::timeout;
 
 use tokio::time::{sleep, Duration};
-use client::connect_to_broker;
+use client::{connect_to_broker, read_pingresp, subscribe_to_topic};
 use client::read_connack;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -23,53 +23,15 @@ async fn main() {
         Ok(mut stream) => {
             if let Ok(true) = read_connack(&mut stream).await {
                 println!("Connected to the broker!");
-                let counter = 1;
+                let mut counter = 0;
                 for sub in subscriptions{
-                    let subscription_packet = MqttSubscribe 
-                    {
-                        topic: sub.to_string(),
-                        id:counter,
-                    }.encode();
-                    if let Err(e) = stream.write_all(&subscription_packet).await{
-                        eprintln!("Failed to subscribe: {}", e);
-                    } else{
-                        println!("Subscribing to {}!", sub);
-                    }
-                    // Read and verify SUBACK
-                    let mut buffer = [0u8; 4]; // Adjust buffer size as needed
-                    match timeout(Duration::from_secs(1), stream.read_exact(&mut buffer)).await {
-                        Ok(Ok(_)) => {
-                            println!("Received raw packet data: {:?}", &buffer);
-                            match buffer[0] >> 4 {
-                                9 => { // SUBACK packet type
-                                    println!("Received SUBACK for {}", sub);
-                                    // Check the return code in the SUBACK packet
-                                    let return_code = buffer[3]; // Adjust index based on actual packet structure
-                                    if return_code == 0x00 || return_code == 0x01 {
-                                        println!("Subscription to {} successful!", sub);
-                                    } else {
-                                        println!("Subscription to {} failed with return code: {}", sub, return_code);
-                                    }
-                                }
-                                _ => {
-                                    println!("Received unexpected packet type {:?}", buffer[0] >> 4);
-                                }
-                            }
-                        }
-                        Ok(Err(e)) => {
-                            eprintln!("Failed to read SUBACK packet: {:?}", e);
-                        }
-                        Err(_) => {
-                            eprintln!("Timeout waiting for SUBACK packet for {}", sub);
-                        }
-                    }
+                    subscribe_to_topic(&mut stream, sub, counter).await;
+                    counter += 1;
                 } 
            
                 sleep(Duration::from_millis(1000)).await;
-                // One thing to note is that SUBACK packets could be checked here before entering the main loop
-                
-
-                let keep_alive_int = Duration::from_secs(60);
+            
+                let keep_alive_int = Duration::from_secs(2);
                 let mut last_ping = tokio::time::Instant::now();
 
                 loop {
@@ -88,7 +50,13 @@ async fn main() {
                     match timeout(Duration::from_secs(1), stream.read_exact(&mut buffer)).await {
                         Ok(Ok(_)) => match buffer[0] >> 4 {
                             13 => {
-                                println!("Received PINGRESP packet.");
+                                if let Ok(true) = read_pingresp(&mut stream).await {
+                                    println!("Received PINGRESP packet.");
+                                }
+                                else{
+                                    println!("Error regarding PINGRESP packet.");
+                                }
+                                
                             }
                             3 => {
                                 
@@ -99,7 +67,6 @@ async fn main() {
                                 println!("Topic: {}", pub_struct.topic);
                                 println!("Payload: {}", pub_struct.payload);
                                 println!("-------------------------------");
-
                             }
                             _ => {
                                 println!("Received unknown packet type {:?}", buffer[0] >> 4);

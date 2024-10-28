@@ -1,7 +1,8 @@
+use bytes::buf;
 use tokio::net::TcpStream;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
-use crate::packet::MqttConnect;
-
+use crate::packet::{MqttConnect, MqttPublish, MqttSubscribe};
+use tokio::time::{sleep, Duration, timeout};
 // Connect to the MQTT Broker via TCP/IP
 pub async fn connect_to_broker(broker: &str, port: u16, client_id: &str) -> tokio::io::Result<TcpStream> {
     println!("Connecting to broker at {}:{}", broker, port);
@@ -18,6 +19,59 @@ pub async fn connect_to_broker(broker: &str, port: u16, client_id: &str) -> toki
 }
 
 
+pub async fn send_publish_message(stream: &mut TcpStream, payload: String, topic: String){
+    let packet_structure = MqttPublish::new(topic, payload, true, 0, false);
+    let encoded_packet = packet_structure.encode();
+    if let Err(e) = stream.write_all(&encoded_packet).await {
+        println!("Error occurred when sending PUBLISH packet: {}", e);
+    } else {
+        // QoS levels logic!
+        println!("PUBLISH packet has been sent.");
+    }
+}
+
+pub async fn subscribe_to_topic(stream: &mut TcpStream, topic: &str, id:u16){
+    let encoded_packet = MqttSubscribe::new(topic.to_string(), id).encode();
+    println!("{:?}", encoded_packet);
+    if let Err(e) = stream.write_all(&encoded_packet).await {
+        println!("Error occurred when sending SUBSCRIBE packet: {}", e);
+    } else {
+        // QoS levels logic!
+        println!("SUBSCRIBE packet has been sent.");
+        let mut buffer = [0u8; 4]; 
+        match timeout(Duration::from_secs(1), stream.read_exact(&mut buffer)).await {
+            Ok(Ok(_)) => {
+                println!("Received raw packet data: {:?}", &buffer);
+                match buffer[0] >> 4 {
+                    9 => { // SUBACK packet type
+                        println!("Received SUBACK for {}", topic);
+                        // Check the return code in the SUBACK packet
+                        let return_code = buffer[3]; // Adjust index based on actual packet structure
+                        if return_code == 0x00 || return_code == 0x01 {
+                            println!("Subscription to {} successful!", topic);
+                        } else {
+                            println!("Subscription to {} failed with return code: {}", topic, return_code);
+                        }
+                    }
+                    _ => {
+                        println!("Received unexpected packet type {:?}", buffer[0] >> 4);
+                    }
+                }
+            }
+            Ok(Err(e)) => {
+                eprintln!("Failed to read SUBACK packet: {:?}", e);
+            }
+            Err(_) => {
+                eprintln!("Timeout waiting for SUBACK packet for {}", topic);
+            }
+        }
+    }
+
+}
+
+pub async fn subscribe_to_topic_vector(stream: &mut TcpStream, topics: Vec<String>){}
+
+
 pub async fn read_connack(stream: &mut TcpStream) -> Result<bool, Box<dyn std::error::Error>> {
     let mut buffer = [0u8; 4];
     stream.read_exact(&mut buffer).await?;
@@ -30,10 +84,9 @@ pub async fn read_connack(stream: &mut TcpStream) -> Result<bool, Box<dyn std::e
 }
 
 pub async fn read_pingresp(stream: &mut TcpStream) -> Result<bool, Box<dyn std::error::Error>> {
-    let mut buffer = [0u8; 2];
+    let mut buffer = [0u8; 1];
     stream.read_exact(&mut buffer).await?; 
-    println!("{:?}", buffer);
-    if buffer[0] == 0xD0 && buffer[1] == 0x00 {
+    if buffer[0] == 0x00 { // Successful PINGRESP
         Ok(true)
     } else {
         Ok(false)
