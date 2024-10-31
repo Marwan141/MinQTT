@@ -1,8 +1,7 @@
-use bytes::buf;
 use tokio::net::TcpStream;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use crate::packet::{MqttConnect, MqttPublish, MqttSubscribe};
-use tokio::time::{sleep, Duration, timeout};
+use tokio::time::{Duration, timeout};
 // Connect to the MQTT Broker via TCP/IP
 pub async fn connect_to_broker(broker: &str, port: u16, client_id: &str) -> tokio::io::Result<TcpStream> {
     println!("Connecting to broker at {}:{}", broker, port);
@@ -20,8 +19,7 @@ pub async fn connect_to_broker(broker: &str, port: u16, client_id: &str) -> toki
 
 
 pub async fn send_publish_message(stream: &mut TcpStream, payload: String, topic: String){
-    let packet_structure = MqttPublish::new(topic, payload, true, 0, false);
-    let encoded_packet = packet_structure.encode();
+    let encoded_packet = MqttPublish::new(topic, payload, true, 0, false).encode();
     if let Err(e) = stream.write_all(&encoded_packet).await {
         println!("Error occurred when sending PUBLISH packet: {}", e);
     } else {
@@ -45,13 +43,15 @@ pub async fn subscribe_to_topic(stream: &mut TcpStream, topic: &str, id:u16){
                 match buffer[0] >> 4 {
                     9 => { // SUBACK packet type
                         println!("Received SUBACK for {}", topic);
+                        println!("-------------------------------");
                         // Check the return code in the SUBACK packet
                         let return_code = buffer[3]; // Adjust index based on actual packet structure
                         if return_code == 0x00 || return_code == 0x01 {
-                            println!("Subscription to {} successful!", topic);
+                            println!("Status: Subscription to {} successful!", topic);
                         } else {
-                            println!("Subscription to {} failed with return code: {}", topic, return_code);
+                            println!("Status: Subscription to {} failed with return code: {}", topic, return_code);
                         }
+                        println!("-------------------------------");
                     }
                     _ => {
                         println!("Received unexpected packet type {:?}", buffer[0] >> 4);

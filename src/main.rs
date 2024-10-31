@@ -1,6 +1,6 @@
 mod packet;
 mod client;
-use packet::{MqttConnect, MqttPublish, MqttPingReq, MqttSubscribe};
+use packet::{MqttPublish, MqttPingReq};
 
 use tokio::time::timeout;
 
@@ -12,11 +12,12 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[tokio::main]
 
 async fn main() {
-    let broker = "broker.hivemq.com";
+    let broker = "test.mosquitto.org";
     let port = 1883;
     let client_id = "minqtt_client";
     let mut subscriptions = Vec::new();
     subscriptions.push("sub1");
+    subscriptions.push("RAG");
     subscriptions.push("sub2");
 
     match connect_to_broker(broker, port, client_id).await {
@@ -31,9 +32,8 @@ async fn main() {
            
                 sleep(Duration::from_millis(1000)).await;
             
-                let keep_alive_int = Duration::from_secs(2);
+                let keep_alive_int = Duration::from_secs(60);
                 let mut last_ping = tokio::time::Instant::now();
-
                 loop {
                     // Check if it's time to send a PINGREQ
                     if last_ping.elapsed() >= keep_alive_int {
@@ -59,10 +59,9 @@ async fn main() {
                                 
                             }
                             3 => {
-                                
+                                println!("Received PUBLISH packet.");
                                 let received_publish = MqttPublish::decode(buffer.to_vec(), &mut stream);
                                 let pub_struct = received_publish.await;
-                                println!("Received PUBLISH packet.");
                                 println!("-------------------------------");
                                 println!("Topic: {}", pub_struct.topic);
                                 println!("Payload: {}", pub_struct.payload);

@@ -189,7 +189,7 @@ impl MqttPublish {
                     remaining_length += (byte & 127) as usize * multiplier;
                     multiplier *= 128;
                     if byte & 128 == 0 {
-                        break;
+                        break; // All remanining length bytes have been read when MSB is 0
                     }
                 }
                 Err(e) => {
