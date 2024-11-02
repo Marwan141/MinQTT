@@ -77,7 +77,6 @@ async fn main() {
                         }
                         Err(_) => {
                             // Timeout expired
-                            println!("Nothing is in the stream.");
                         }
                     }    
                     sleep(Duration::from_millis(100)).await;

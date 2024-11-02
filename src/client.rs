@@ -30,7 +30,6 @@ pub async fn send_publish_message(stream: &mut TcpStream, payload: String, topic
 
 pub async fn subscribe_to_topic(stream: &mut TcpStream, topic: &str, id:u16){
     let encoded_packet = MqttSubscribe::new(topic.to_string(), id).encode();
-    println!("{:?}", encoded_packet);
     if let Err(e) = stream.write_all(&encoded_packet).await {
         println!("Error occurred when sending SUBSCRIBE packet: {}", e);
     } else {
@@ -39,7 +38,6 @@ pub async fn subscribe_to_topic(stream: &mut TcpStream, topic: &str, id:u16){
         let mut buffer = [0u8; 4]; 
         match timeout(Duration::from_secs(1), stream.read_exact(&mut buffer)).await {
             Ok(Ok(_)) => {
-                println!("Received raw packet data: {:?}", &buffer);
                 match buffer[0] >> 4 {
                     9 => { // SUBACK packet type
                         println!("Received SUBACK for {}", topic);
