@@ -1,6 +1,6 @@
 
-use tokio::net::{TcpStream};
-use tokio::io::{AsyncReadExt};
+use tokio::net::TcpStream;
+use tokio::io::AsyncReadExt;
 
 pub enum PacketType {
     Connect = 1,

@@ -9,6 +9,7 @@ async fn main() {
     let port = 1883;
     let client_id = "minqtt_client";
     let mut subscriptions = Vec::new();
+    
     subscriptions.push("sub1");
     subscriptions.push("RAG");
     subscriptions.push("sub2");

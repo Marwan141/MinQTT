@@ -31,6 +31,7 @@ pub async fn send_publish_message(stream: &mut TcpStream, payload: String, topic
 }
 
 pub async fn subscribe_to_topic(stream: &mut TcpStream, topic: &str, id:u16){
+    println!("Trying to subscribe to {}", topic);
     let encoded_packet = MqttSubscribe::new(topic.to_string(), id).encode();
     if let Err(e) = stream.write_all(&encoded_packet).await {
         println!("Error occurred when sending SUBSCRIBE packet: {}", e);
@@ -103,7 +104,7 @@ pub async fn run_main_loop(mut stream: &mut TcpStream, subscriptions: Vec<&str>)
             subscribe_to_topic(&mut stream, sub, counter).await;
             counter += 1;
         } 
-        
+
         let keep_alive_int = Duration::from_secs(60);
         let mut last_ping = tokio::time::Instant::now();
         loop {
