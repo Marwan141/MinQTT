@@ -1,7 +1,9 @@
 use tokio::net::TcpStream;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
-use crate::packet::{MqttConnect, MqttPublish, MqttSubscribe};
-use tokio::time::{Duration, timeout};
+use crate::packet::{MqttConnect, MqttPublish, MqttSubscribe,MqttPingReq};
+use tokio::time::{Duration, timeout, sleep};
+
+
 // Connect to the MQTT Broker via TCP/IP
 pub async fn connect_to_broker(broker: &str, port: u16, client_id: &str) -> tokio::io::Result<TcpStream> {
     println!("Connecting to broker at {}:{}", broker, port);
@@ -91,4 +93,68 @@ pub async fn read_pingresp(stream: &mut TcpStream) -> Result<bool, Box<dyn std::
 
     }
 
+}
+
+pub async fn run_main_loop(mut stream: &mut TcpStream, subscriptions: Vec<&str>){
+    if let Ok(true) = read_connack(&mut stream).await {
+        println!("Connected to the broker!");
+        let mut counter = 1;
+        for sub in subscriptions{
+            subscribe_to_topic(&mut stream, sub, counter).await;
+            counter += 1;
+        } 
+        
+        let keep_alive_int = Duration::from_secs(60);
+        let mut last_ping = tokio::time::Instant::now();
+        loop {
+            // Check if it's time to send a PINGREQ
+            if last_ping.elapsed() >= keep_alive_int {
+                let pingreq_packet = MqttPingReq {}.encode();
+                if let Err(e) = stream.write_all(&pingreq_packet).await {
+                    eprintln!("Failed to send PINGREQ packet: {}", e);
+                    break;
+                }
+                println!("Sent PINGREQ");
+                last_ping = tokio::time::Instant::now();
+            }
+            
+            let mut buffer = [0u8; 1];
+            match timeout(Duration::from_secs(1), stream.read_exact(&mut buffer)).await {
+                Ok(Ok(_)) => match buffer[0] >> 4 {
+                    13 => {
+                        if let Ok(true) = read_pingresp(&mut stream).await {
+                            println!("Received PINGRESP packet.");
+                        }
+                        else{
+                            println!("Error regarding PINGRESP packet.");
+                        }
+                        
+                    }
+                    3 => {
+                        println!("Received PUBLISH packet.");
+                        let received_publish = MqttPublish::decode(buffer.to_vec(), &mut stream);
+                        let pub_struct = received_publish.await;
+                        println!("-------------------------------");
+                        println!("Topic: {}", pub_struct.topic);
+                        println!("Payload: {}", pub_struct.payload);
+                        println!("-------------------------------");
+                    }
+                    _ => {
+                        println!("Received unknown packet type {:?}", buffer[0] >> 4);
+                    }
+                },
+                Ok(Err(e)) => {
+                    eprintln!("Failed to read packet: {:?}", e);
+                    break;
+                }
+                Err(_) => {
+                    // Timeout expired
+                }
+            }    
+            sleep(Duration::from_millis(100)).await;
+        }
+ 
+    } else {
+        eprintln!("Failed to receive CONNACK; Can't connect to broker.");
+    }
 }
