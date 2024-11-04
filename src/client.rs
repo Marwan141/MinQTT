@@ -8,13 +8,13 @@ use tokio::time::{Duration, timeout, sleep};
 pub async fn connect_to_broker(broker: &str, port: u16, client_id: &str) -> tokio::io::Result<TcpStream> {
     println!("Connecting to broker at {}:{}", broker, port);
     let mut stream = TcpStream::connect((broker, port)).await?;
-    println!("Connected to broker, sending CONNECT packet...");
+    //println!("Connected to broker, sending CONNECT packet...");
 
     let connect_packet = MqttConnect::new(client_id).encode();
 
     // Send CONNECT packet
     stream.write_all(&connect_packet).await?;
-    println!("CONNECT packet sent!");
+    //println!("CONNECT packet sent!");
 
     Ok(stream)
 }
@@ -31,19 +31,17 @@ pub async fn send_publish_message(stream: &mut TcpStream, payload: String, topic
 }
 
 pub async fn subscribe_to_topic(stream: &mut TcpStream, topic: &str, id:u16){
-    println!("Trying to subscribe to {}", topic);
     let encoded_packet = MqttSubscribe::new(topic.to_string(), id).encode();
     if let Err(e) = stream.write_all(&encoded_packet).await {
         println!("Error occurred when sending SUBSCRIBE packet: {}", e);
     } else {
-        // QoS levels logic!
-        println!("SUBSCRIBE packet has been sent.");
+        // QoS levels logic (TBI)
+        //println!("SUBSCRIBE packet has been sent.");
         let mut buffer = [0u8; 4]; 
         match timeout(Duration::from_secs(1), stream.read_exact(&mut buffer)).await {
             Ok(Ok(_)) => {
                 match buffer[0] >> 4 {
                     9 => { // SUBACK packet type
-                        println!("Received SUBACK for {}", topic);
                         println!("-------------------------------");
                         // Check the return code in the SUBACK packet
                         let return_code = buffer[3]; // Adjust index based on actual packet structure
@@ -139,6 +137,10 @@ pub async fn run_main_loop(mut stream: &mut TcpStream, subscriptions: Vec<&str>)
                         println!("Topic: {}", pub_struct.topic);
                         println!("Payload: {}", pub_struct.payload);
                         println!("-------------------------------");
+                    }
+
+                    0 => {
+
                     }
                     _ => {
                         println!("Received unknown packet type {:?}", buffer[0] >> 4);
