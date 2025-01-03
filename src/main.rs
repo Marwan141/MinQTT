@@ -9,10 +9,11 @@ async fn main() {
     let port = 1883;
     let client_id = "minqtt_client";
     let mut subscriptions = Vec::new();
-    
+    subscriptions.push("test");
     subscriptions.push("sub1");
     subscriptions.push("RAG");
     subscriptions.push("sub2");
+    subscriptions.push("HELP");
 
     match connect_to_broker(broker, port, client_id).await {
         Ok(mut stream) => {

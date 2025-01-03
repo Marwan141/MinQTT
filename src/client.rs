@@ -53,7 +53,7 @@ pub async fn subscribe_to_topic(stream: &mut TcpStream, topic: &str, id:u16){
                         println!("-------------------------------");
                     }
                     _ => {
-                        println!("Received unexpected packet type {:?}", buffer[0] >> 4);
+                        println!("Received unexpected packet type whilst subscribing {:?}", buffer[0] >> 4);
                     }
                 }
             }
